@@ -1,0 +1,94 @@
+#!/usr/bin/env perl
+
+use Git::Command::WriteALot;
+Git::Command::WriteALot->run;
+
+=head1 NAME
+
+git-wal - a git extension to help you Write A Lot
+
+=head1 SYNOPSIS
+
+ # Note when you start, and indicate your goal
+ git wal start '250 words on foo'
+ ... type type type ...
+ # Check your status
+ git wal status
+ # Commit your latest work
+ git commit -a -m 'Progress on foo'
+ ... keep typing ...
+ git commit -a -m 'More progress on foo'
+ # wrap things up for today's writing session
+ git wal stop
+ 
+ # Look over your progress
+ git wal log
+
+=head1 DESCRIPTION
+
+In How to Write a Lot, Paul Silva discusses the importance of tracking your 
+writing. Good metrics to track include word count and duration, and the derived
+metric of average production rate. If you use a text-based system for writing
+your documents, C<git-wal> can help automate tracking that information.
+
+C<git-wal> has three important features. First, it lets you track with relative 
+simplicity when you start and stop your writing. Second, it provides a simple 
+mechanism for setting a goal when you begin your writing. Third, it provides 
+intelligent and extensible word count system so that you can accurately 
+characterize the number of words you removed and added in your writing session.
+
+The time tracking and goal setting aspects of C<git-wal> are stored using
+C<git-notes>.
+
+=cut
+
+# Get the word diff:
+my ($additions, $subtractions);
+open my $in_fh, '-|', qw(git diff --word-diff HEAD^ HEAD);
+while(my $line = <$in_fh>) {
+	# calculate the subtractions
+	while ($line =~ s/\[-\s*(.*?)\s*-\]//) {
+		my $removed = $1;
+#		print "$removed ---> $N_sub\n";
+		my $N_sub = split /\s+/, $removed;
+		$subtractions += split /\s+/, $removed;
+	}
+	while ($line =~ s/\{\+\s*(.*?)\s*\+\}//) {
+		my $added = $1;
+		my $N_add = split /\s+/, $added;
+#		print "$added ---> $N_add\n";
+		$additions += split /\s+/, $added;
+	}
+}
+
+print "Added $additions words, removed $subtractions words\n";
+
+package Git::Command::wc;
+use Carp;
+
+sub parse_args {
+	my $self = shift;
+	# Add the default arguments
+	push @ARGV, 'HEAD^' if @ARGV == 0;
+	push @ARGV, 'HEAD' if @ARGV == 1;
+	$self->{to} = pop @ARGV;
+	$self->{from} = pop @ARGV;
+}
+
+sub get_files {
+	my $self = shift;
+	$self->parse_args if not exists $self->{to}
+		or not exists $self->{from};
+}
+
+sub run {
+	$self->parse_args;
+	$self->get_files;
+}
+
+# git diff --name-only
+
+sub count_words_lyx {
+	
+}
+
