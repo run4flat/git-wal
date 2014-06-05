@@ -21,11 +21,12 @@ sub get_wal_entry_iterator {
 		'--pretty=format:COMMIT %H%nTIME %ct%n%N';
 	# The first 'next' sha is taken from the first line
 	my $next_sha = <$in_fh>;
-	$next_sha =~ s/COMMIT (.*)\s*/$1/;
+	$next_sha =~ s/COMMIT (.*)\s*/$1/ if $next_sha;
 	return sub {
 		return unless $next_sha;
 		my %commit_info = (sha => $next_sha);
-		LINE: while (my $line = <$in_fh>) {
+		
+		while (my $line = <$in_fh>) {
 			if ($line =~ /^COMMIT (.*)/) {
 				$next_sha = $1;
 				return %commit_info;
@@ -43,11 +44,14 @@ sub get_wal_entry_iterator {
 				$commit_info{stop_time} = $commit_info{commit_time};
 			}
 		}
+		undef $next_sha;
+		close $in_fh;
+		return %commit_info;
 	};
 }
 
 # Call the entry iterator just once
-sub get_last_wal_entry { wal_entry_iterator->() }
+sub get_last_wal_entry { get_wal_entry_iterator->() }
 
 sub get_wal_interval_iterator {
 	# Iterate through all of the log entries
@@ -81,32 +85,36 @@ sub get_wal_interval_iterator {
 			# round through the loop
 			if (exists $entry{stop_time}) {
 				%data_from_prev = (
-					stop_time => $entry{time},
-					stop_sha  => $entry{stop_sha},
+					stop_time => $entry{stop_time},
+					stop_sha  => $entry{sha},
 				);
 			}
 			
 			return %interval if keys %interval;
 		}
-		continue { %entry = get_wal_entry_iterator->() }
+		continue { %entry = $iterator->() }
+		return;
 	};
 }
 
 sub process_interval {
 	my %interval = @_;
+	return unless keys %interval;
 	
 	# Compute the duration
 	my $duration = $interval{duration}
 		= $interval{stop_time} - $interval{start_time};
 	$interval{duration_mins} = $duration / 60;
 	$interval{s} = $duration % 60;
-	$duration -= $interval{sec};
+	$duration -= $interval{s};
+	$duration /= 60;
 	$interval{m} = $duration % 60;
-	$interval{h}= $duration - $interval{min};
+	$interval{h} = ($duration - $interval{m}) / 60;
 	
 	my ($additions, $subtractions) = (0, 0);
+	my @last_arg = ($interval{stop_sha}) if exists $interval{stop_sha};
 	open my $in_fh, '-|', qw(git diff --word-diff), $interval{start_sha},
-		$interval{stop_sha};
+		@last_arg;
 	while(my $line = <$in_fh>) {
 		# calculate the subtractions
 		while ($line =~ s/\[-\s*(.*?)\s*-\]//) {
@@ -125,15 +133,17 @@ sub process_interval {
 
 sub describe_interval {
 	my %interval = process_interval(@_);
-	print localtime($interval{start_time}), " --> ",
-		localtime($interval{stop_time});
-	print " # $interval{goal}" if exists $interval{goal};
-	print "\n";
+	return unless keys %interval;
+	
+	print localtime($interval{start_time}) . " --> "
+		. localtime($interval{stop_time}), "\n";
+	printf"  Duration     : $interval{h}:%0.2d:%0.2d\n", $interval{m},
+		$interval{s};
+	print "  Goal         : $interval{goal}\n" if exists $interval{goal};
 	print "  Words added  : $interval{added}\n" if $interval{added};
-	print "  Words removed: $interval{removed\n" if $interval{removed};
-	print "  Duration     : $interval{hour}:$interval{min}:$interval{sec}\n";
-	print "  Avg add rate : ", $interval{added} / $interval{duration_mins},
-		"\n" if $interval{added};
-	print "  Avg rem rate : ", $interval{removed} / $interval{duration_mins},
-		"\n" if $interval{removed};
+	print "  Words removed: $interval{removed}\n" if $interval{removed};
+	printf "  Avg add rate : %1.1f words per minute\n"
+		, $interval{added} / $interval{duration_mins} if $interval{added};
+	printf "  Avg rem rate : %1.1f words per minute\n"
+		, $interval{removed} / $interval{duration_mins} if $interval{removed};
 }
