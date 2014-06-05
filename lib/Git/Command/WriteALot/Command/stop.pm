@@ -18,7 +18,10 @@ sub execute {
 	# Can only stop if they already started before
 	my %last_entry = get_last_wal_entry;
 	die "Can't stop what you didn't start\n"
-		unless exists $last_entry{wal_start};
+		unless exists $last_entry{start_time};
+	chomp(my $head = `git rev-parse HEAD`);
+	die "Can't stop on the same commit where you started\n"
+		if $head eq $last_entry{sha};
 	
 	# Add a note to the current commit indicating the the writing stopped at
 	# this commit

@@ -15,7 +15,7 @@ sub execute {
 	# Can only stop if they already started before
 	my %last_entry = get_last_wal_entry;
 	die "Can't quit what you didn't start\n"
-		unless exists $last_entry{wal_start};
+		unless exists $last_entry{start_time};
 	
 	# Remove the note indicating the wal-start from the entry.
 	my $notes = join '', grep { $_ !~ /^wal-start=/ }
