@@ -1,3 +1,4 @@
+# ABSTRACT: Mark current writing session concluded with the latest commit
 use strict;
 use warnings;
 

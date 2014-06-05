@@ -1,3 +1,4 @@
+# ABSTRACT: Display statistics of past writing sessions
 use strict;
 use warnings;
 

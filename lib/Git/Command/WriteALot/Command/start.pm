@@ -1,3 +1,4 @@
+# ABSTRACT: Start a writing session
 use strict;
 use warnings;
 

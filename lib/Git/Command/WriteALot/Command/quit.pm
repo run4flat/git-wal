@@ -1,3 +1,4 @@
+# ABSTRACT: Discard current writing session
 use strict;
 use warnings;
 
