@@ -6,12 +6,5 @@ use warnings;
                    package Git::Command::WriteALot;
 ############################################################################
 
-use Carp;
-
-sub new {
-	return bless {};
-}
-
-
-
+use App::Cmd::Setup -app;
 1;
