@@ -18,7 +18,7 @@ sub is_dirty {
 sub get_wal_entry_iterator {
 	# Open the file handle that we'll read from
 	open my $in_fh, '-|', qw(git log --grep=wal-st),
-		'--pretty=format:COMMIT %H%nTIME %ct%n%N';
+		'--pretty=format:COMMIT %H%nTIME %ct%n%B';
 	# The first 'next' sha is taken from the first line
 	my $next_sha = <$in_fh>;
 	$next_sha =~ s/COMMIT (.*)\s*/$1/ if $next_sha;
@@ -34,11 +34,9 @@ sub get_wal_entry_iterator {
 			elsif ($line =~ /^TIME (\d+)/) {
 				$commit_info{commit_time} = $1;
 			}
-			elsif ($line =~ /^wal-start=(\d+)/) {
-				$commit_info{start_time} = $1;
-			}
-			elsif ($line =~ /^wal-goal=(.*)/) {
-				$commit_info{start_goal} = $1;
+			elsif ($line =~ /^wal-start\s*(.*)?/) {
+				$commit_info{start_time} = $commit_info{commit_time};
+				$commit_info{goal} = $1 if $1;
 			}
 			elsif ($line =~ /^wal-stop/) {
 				$commit_info{stop_time} = $commit_info{commit_time};
@@ -78,6 +76,7 @@ sub get_wal_interval_iterator {
 						%data_from_prev
 					);
 					$interval{goal} = $entry{goal} if exists $entry{goal};
+					%data_from_prev = ();
 				}
 			}
 			
