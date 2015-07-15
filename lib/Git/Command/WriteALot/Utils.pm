@@ -7,7 +7,7 @@ use warnings;
 
 use Exporter 'import';
 our @EXPORT = qw(is_dirty get_last_wal_entry get_wal_interval_iterator
-	describe_interval);
+	describe_interval process_interval);
 
 sub is_dirty {
 	# Get the git status of the current working directory
